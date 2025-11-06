@@ -1,0 +1,68 @@
+import numpy as np
+
+# Problem data: weights and values of items
+weights = np.array([2, 3, 4, 5])
+values = np.array([3, 4, 5, 6])
+capacity = 8
+
+n_items = len(weights)
+n_nests = 5
+pa = 0.25  # Probability to abandon worst nests
+max_iter = 5
+
+# Objective: maximize total value within capacity
+def fitness(solution):
+    total_weight = np.sum(solution * weights)
+    total_value = np.sum(solution * values)
+    if total_weight > capacity:
+        # Penalize overweight solutions
+        return 0
+    else:
+        return total_value
+
+# Generate initial nests randomly (binary vectors)
+nests = np.random.randint(2, size=(n_nests, n_items))
+fitnesses = np.array([fitness(n) for n in nests])
+
+best_idx = np.argmax(fitnesses)
+best_nest = nests[best_idx].copy()
+best_fitness = fitnesses[best_idx]
+
+print(f"Initial best fitness: {best_fitness}")
+
+def bit_flip_mutation(solution, mutation_rate=0.3):
+    new_sol = solution.copy()
+    for i in range(len(solution)):
+        if np.random.rand() < mutation_rate:
+            new_sol[i] = 1 - new_sol[i]  # flip bit
+    return new_sol
+
+for iteration in range(max_iter):
+    # Generate new solutions via bit-flip mutation (Levy flight analog)
+    new_nests = np.array([bit_flip_mutation(nests[i]) for i in range(n_nests)])
+    new_fitnesses = np.array([fitness(n) for n in new_nests])
+
+    # Selection: keep better solutions
+    for i in range(n_nests):
+        if new_fitnesses[i] > fitnesses[i]:
+            nests[i] = new_nests[i]
+            fitnesses[i] = new_fitnesses[i]
+
+    # Update best
+    current_best_idx = np.argmax(fitnesses)
+    if fitnesses[current_best_idx] > best_fitness:
+        best_fitness = fitnesses[current_best_idx]
+        best_nest = nests[current_best_idx].copy()
+
+    # Abandon worst nests with probability pa
+    worst_idx = np.argmin(fitnesses)
+    if np.random.rand() < pa:
+        nests[worst_idx] = np.random.randint(2, size=n_items)
+        fitnesses[worst_idx] = fitness(nests[worst_idx])
+
+    print(f"Iter {iteration+1}: Best fitness = {best_fitness}")
+
+print("\nBest solution found:")
+print(f"Items taken: {best_nest}")
+print(f"Total weight: {np.sum(best_nest * weights)}")
+print(f"Total value: {best_fitness}")
