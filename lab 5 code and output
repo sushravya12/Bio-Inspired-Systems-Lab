@@ -1,0 +1,87 @@
+import numpy as np
+
+class AntColony:
+    def __init__(self, distances, n_ants, n_iterations, decay, alpha=1, beta=2):
+        self.distances = distances
+        self.pheromone = np.ones(distances.shape) / len(distances)
+        self.n_ants = n_ants
+        self.n_iterations = n_iterations
+        self.decay = decay
+        self.alpha = alpha
+        self.beta = beta
+
+    def run(self):
+        best_path, best_length = None, float('inf')
+        for i in range(self.n_iterations):
+            paths = [self.construct_path(0) for _ in range(self.n_ants)]
+            paths_with_length = [(self.path_length(p), p) for p in paths]
+            self.evaporate_pheromone()
+            self.deposit_pheromone(paths_with_length)
+            current_best = min(paths_with_length, key=lambda x: x[0])
+            if current_best[0] < best_length:
+                best_length, best_path = current_best
+            print(f"Iteration {i+1}: shortest path length = {best_length}")
+        return best_path, best_length
+
+    def construct_path(self, start):
+        path, visited = [start], {start}
+        for _ in range(len(self.distances) - 1):
+            current = path[-1]
+            move = self.pick_move(current, visited)
+            path.append(move)
+            visited.add(move)
+        return path
+
+    def pick_move(self, current, visited):
+        pheromone = np.copy(self.pheromone[current])
+        pheromone[list(visited)] = 0
+        heuristic = 1 / (self.distances[current] + 1e-10)
+        heuristic[list(visited)] = 0
+        prob = (pheromone ** self.alpha) * (heuristic ** self.beta)
+        if prob.sum() == 0:
+            choices = list(set(range(len(self.distances))) - visited)
+            return np.random.choice(choices)
+        prob /= prob.sum()
+        return np.random.choice(range(len(self.distances)), p=prob)
+
+    def path_length(self, path):
+        return sum(self.distances[path[i], path[i+1]] for i in range(len(path)-1)) + self.distances[path[-1], path[0]]
+
+    def evaporate_pheromone(self):
+        self.pheromone *= self.decay
+
+    def deposit_pheromone(self, paths_with_length):
+        for length, path in paths_with_length:
+            for i in range(len(path) - 1):
+                self.pheromone[path[i], path[i+1]] += 1 / length
+                self.pheromone[path[i+1], path[i]] += 1 / length
+            self.pheromone[path[-1], path[0]] += 1 / length
+            self.pheromone[path[0], path[-1]] += 1 / length
+
+# Example Usage
+if __name__ == "__main__":
+    distances = np.array([
+        [0, 2, 2, 5, 7],
+        [2, 0, 4, 8, 2],
+        [2, 4, 0, 1, 3],
+        [5, 8, 1, 0, 2],
+        [7, 2, 3, 2, 0]
+    ])
+
+    # Changed n_iterations from 50 to 5
+    ant_colony = AntColony(distances, n_ants=10, n_iterations=5, decay=0.5)
+    best_path, best_length = ant_colony.run()
+
+    print("\nBest path found:", best_path)
+    print("Length of best path:", best_length)
+
+
+#output
+Iteration 1: shortest path length = 9
+Iteration 2: shortest path length = 9
+Iteration 3: shortest path length = 9
+Iteration 4: shortest path length = 9
+Iteration 5: shortest path length = 9
+
+Best path found: [0, np.int64(1), np.int64(4), np.int64(3), np.int64(2)]
+Length of best path: 9
