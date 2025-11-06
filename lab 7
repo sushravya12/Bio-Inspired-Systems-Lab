@@ -1,0 +1,89 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+# -----------------------------
+# Objective Function (Environmental Example)
+# -----------------------------
+def irrigation_objective(x):
+    # Parameters for irrigation problem
+    a = 0.8      # yield penalty factor
+    b = 5        # water cost factor
+    x_opt = 60   # optimal irrigation level (e.g., mm/day)
+    return a * (x - x_opt)**2 + b / x
+
+# -----------------------------
+# Grey Wolf Optimizer (GWO)
+# -----------------------------
+def GWO(obj_func, lb, ub, dim, n_wolves, max_iter):
+    # Initialize wolves randomly within bounds
+    wolves = np.random.uniform(lb, ub, (n_wolves, dim))
+    alpha, beta, delta = np.zeros(dim), np.zeros(dim), np.zeros(dim)
+    alpha_score, beta_score, delta_score = float("inf"), float("inf"), float("inf")
+
+    convergence_curve = []
+
+    for t in range(max_iter):
+        for i in range(n_wolves):
+            fitness = obj_func(wolves[i])
+            # Update alpha, beta, delta
+            if fitness < alpha_score:
+                alpha_score, alpha = fitness, wolves[i].copy()
+            elif fitness < beta_score:
+                beta_score, beta = fitness, wolves[i].copy()
+            elif fitness < delta_score:
+                delta_score, delta = fitness, wolves[i].copy()
+
+        # Linearly decreasing 'a' from 2 to 0
+        a = 2 - t * (2 / max_iter)
+
+        # Update positions of wolves
+        for i in range(n_wolves):
+            for j in range(dim):
+                r1, r2 = np.random.rand(), np.random.rand()
+                A1, C1 = 2 * a * r1 - a, 2 * r2
+                D_alpha = abs(C1 * alpha[j] - wolves[i][j])
+                X1 = alpha[j] - A1 * D_alpha
+
+                r1, r2 = np.random.rand(), np.random.rand()
+                A2, C2 = 2 * a * r1 - a, 2 * r2
+                D_beta = abs(C2 * beta[j] - wolves[i][j])
+                X2 = beta[j] - A2 * D_beta
+
+                r1, r2 = np.random.rand(), np.random.rand()
+                A3, C3 = 2 * a * r1 - a, 2 * r2
+                D_delta = abs(C3 * delta[j] - wolves[i][j])
+                X3 = delta[j] - A3 * D_delta
+
+                wolves[i][j] = (X1 + X2 + X3) / 3
+
+            # Boundary handling
+            wolves[i] = np.clip(wolves[i], lb, ub)
+
+        convergence_curve.append(alpha_score)
+
+    return alpha, alpha_score, convergence_curve
+
+# -----------------------------
+# Run the GWO for irrigation problem
+# -----------------------------
+dim = 1
+lb, ub = 10, 100     # irrigation limits (mm/day)
+n_wolves = 20
+max_iter = 50
+
+best_pos, best_score, curve = GWO(irrigation_objective, lb, ub, dim, n_wolves, max_iter)
+print(f"Optimal Irrigation Level: {best_pos[0]:.3f} mm/day")
+print(f"Minimum Cost Function Value: {float(best_score):.4f}")
+
+
+
+
+# -----------------------------
+# Plot Convergence Curve
+# -----------------------------
+plt.plot(curve, 'b-', linewidth=2)
+plt.title('GWO Convergence Curve for Irrigation Optimization')
+plt.xlabel('Iteration')
+plt.ylabel('Fitness (Objective Value)')
+plt.grid(True)
+plt.show()
